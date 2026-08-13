@@ -256,3 +256,4 @@ Nenhum frame de câmera ou landmark deve ser enviado para analytics.
 
 ### 2.0
 - contas, progresso, planos e recursos premium.
+- Site oficial publicado na Vercel.
