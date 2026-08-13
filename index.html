@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07100e">
+  <meta name="description" content="Gesture Synth BR — instrumentos musicais virtuais controlados pelas mãos.">
+  <title>Gesture Synth BR — Beta</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js" defer></script>
+</head>
+<body>
+  <noscript>O Gesture Synth BR precisa de JavaScript habilitado.</noscript>
+
+  <div id="app">
+    <main id="stage" aria-label="Área interativa do Gesture Synth BR">
+      <video id="video" autoplay muted playsinline aria-hidden="true"></video>
+      <canvas id="canvas" width="1280" height="720" aria-label="Câmera e instrumentos virtuais"></canvas>
+
+      <div class="hud-top">
+        <div class="hud" id="hudMain">
+          <div class="hud-item"><small>Instrumento</small><strong id="hudInstrument">Piano</strong></div>
+          <div class="hud-item"><small>Modo</small><strong id="hudMode">Virtual</strong></div>
+          <div class="hud-item"><small>Nota / acorde</small><strong id="hudNote">—</strong></div>
+          <div class="hud-item"><small>Mão esquerda</small><strong id="hudLeft">—</strong></div>
+          <div class="hud-item"><small>Mão direita</small><strong id="hudRight">—</strong></div>
+        </div>
+
+        <div class="hud hud-status" aria-live="polite">
+          <span class="status-dot"></span><span id="cameraStatus">Câmera aguardando</span><br>
+          <span id="audioStatus">🔇 Som desligado</span>
+        </div>
+      </div>
+
+      <div id="centralMessage" class="central-message" aria-live="polite"></div>
+
+      <aside id="lessonHud" class="lesson-hud" aria-live="polite">
+        <small>PRÓXIMA NOTA / ACORDE</small>
+        <div class="lesson-next" id="lessonNext">—</div>
+        <div id="lessonTiming"></div>
+        <div id="lessonFeedback" class="lesson-feedback"></div>
+        <div class="score">✅ <span id="scoreOk">0</span> &nbsp; ❌ <span id="scoreErr">0</span><br>Precisão: <span id="scorePct">100%</span></div>
+      </aside>
+
+      <div id="debugPanel" class="debug-panel hidden"></div>
+
+      <div id="orientationNotice" class="orientation-notice hidden">
+        📱 Para uma experiência melhor, gire o celular para a horizontal.
+      </div>
+
+      <nav id="dock" aria-label="Controles principais">
+        <button class="dock-btn" id="btnSound" aria-label="Ativar som">🔊 Som</button>
+        <button class="dock-btn active" data-instrument="piano" aria-label="Escolher piano">🎹 Piano</button>
+        <button class="dock-btn" data-instrument="guitar" aria-label="Escolher violão">🎸 Violão</button>
+        <button class="dock-btn" data-instrument="drums" aria-label="Escolher bateria">🥁 Bateria</button>
+        <button class="dock-btn" data-instrument="synth" aria-label="Escolher sintetizador">🎛 Synth</button>
+        <button class="dock-btn" id="btnCalibrate" aria-label="Calibrar posição das mãos">🎯 Calibrar</button>
+        <button class="dock-btn" id="btnLearn" aria-label="Abrir módulo aprender música">🎧 Aprender</button>
+        <button class="dock-btn" id="btnSettings" aria-label="Abrir configurações">⚙️</button>
+        <button class="dock-btn" id="btnSwitchCamera" aria-label="Trocar câmera">🔄📷</button>
+        <button class="dock-btn" id="btnFullscreen" aria-label="Tela cheia">⛶</button>
+        <button class="dock-btn pix" id="btnPix" aria-label="Apoiar o projeto via Pix">💚 Pix</button>
+        <button class="dock-btn danger" id="btnStop" aria-label="Parar sons">⏹</button>
+      </nav>
+
+      <button id="btnPrivacy" class="privacy-button" aria-label="Ver informações de privacidade">Privacidade</button>
+      <span id="versionLabel" class="version-label">Beta</span>
+    </main>
+  </div>
+
+  <!-- Carregamento -->
+  <div class="modal" id="loadingOverlay" role="status" aria-live="polite">
+    <div class="modal-box compact center">
+      <div class="brand-icon">🎵</div>
+      <h1>Gesture Synth BR</h1>
+      <p>Carregando os componentes...</p>
+      <div id="loadingSteps" class="loading-steps">
+        <div data-step="interface" data-status="waiting"><span class="step-icon">…</span> Interface</div>
+        <div data-step="hands" data-status="waiting"><span class="step-icon">…</span> Reconhecimento das mãos</div>
+        <div data-step="audio" data-status="waiting"><span class="step-icon">…</span> Áudio</div>
+        <div data-step="camera" data-status="waiting"><span class="step-icon">…</span> Câmera</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Boas-vindas / permissão -->
+  <div class="modal hidden" id="welcomeModal" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+    <div class="modal-box compact center">
+      <div class="brand-icon">🎵</div>
+      <h2 id="welcomeTitle">Bem-vindo ao Gesture Synth BR</h2>
+      <p>Transforme movimentos das mãos em música usando a câmera do seu dispositivo.</p>
+      <ol class="onboarding-list">
+        <li>Permita o acesso à câmera.</li>
+        <li>Ative o som.</li>
+        <li>Escolha Piano, Violão, Bateria ou Synth.</li>
+        <li>Posicione as mãos e comece a tocar.</li>
+      </ol>
+      <div class="privacy-note">🔒 Nesta versão, os quadros da webcam são processados no seu dispositivo para detectar as mãos. O Gesture Synth BR não envia nem armazena seu vídeo.</div>
+      <button class="primary large" id="btnBegin">📷 Permitir câmera e começar</button>
+    </div>
+  </div>
+
+  <!-- Instrumento / modo -->
+  <div class="modal hidden" id="instrumentModal" role="dialog" aria-modal="true" aria-labelledby="instrumentTitle">
+    <div class="modal-box compact center">
+      <button class="close" data-close="instrumentModal" aria-label="Fechar">×</button>
+      <h2 id="instrumentTitle">Instrumento</h2>
+      <p>Como deseja tocar?</p>
+      <div class="mode-row">
+        <button class="mode-btn" data-mode="gestures">👋 <strong>Gestos</strong><small>Notas e controles pelo movimento</small></button>
+        <button class="mode-btn" data-mode="virtual" id="virtualModeButton">🎼 <strong>Instrumento virtual</strong><small>Interaja com teclas, cordas ou pads</small></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configurações -->
+  <div class="modal hidden" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-box">
+      <button class="close" data-close="settingsModal" aria-label="Fechar">×</button>
+      <h2 id="settingsTitle">⚙️ Configurações</h2>
+      <div class="form-grid">
+        <div class="field"><label for="settingDominant">Mão dominante</label><select id="settingDominant"><option value="right">Direita</option><option value="left">Esquerda</option></select></div>
+        <div class="field"><label for="settingSensitivity">Sensibilidade</label><select id="settingSensitivity"><option value="low">Baixa</option><option value="normal">Normal</option><option value="high">Alta</option></select></div>
+        <div class="field"><label for="settingQuality">Qualidade da câmera</label><select id="settingQuality"><option value="auto">Automática</option><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></div>
+        <div class="field"><label for="settingVolume">Volume geral</label><input id="settingVolume" type="range" min="0" max="1" step="0.05"></div>
+      </div>
+      <div class="switch-grid">
+        <label><input id="settingLandmarks" type="checkbox"> Exibir landmarks</label>
+        <label><input id="settingMirror" type="checkbox"> Espelhar câmera</label>
+        <label><input id="settingFeedback" type="checkbox"> Feedback visual</label>
+        <label><input id="settingDebug" type="checkbox"> Modo debug</label>
+      </div>
+      <div class="notice">💡 Para canhotos, escolha <strong>Mão dominante: Esquerda</strong>. No violão, o sistema troca automaticamente as funções de acorde e rasgueado.</div>
+      <button class="primary" id="btnApplySettings">Salvar configurações</button>
+    </div>
+  </div>
+
+  <!-- Aprender -->
+  <div class="modal hidden" id="learnModal" role="dialog" aria-modal="true" aria-labelledby="learnTitle">
+    <div class="modal-box wide">
+      <button class="close" data-close="learnModal" aria-label="Fechar">×</button>
+      <h2 id="learnTitle">🎧 Aprender uma música</h2>
+
+      <div class="field">
+        <label for="youtubeUrl">Link do YouTube</label>
+        <div class="inline-row">
+          <input id="youtubeUrl" placeholder="https://youtube.com/watch?v=...">
+          <button class="secondary" id="btnYoutube">Abrir vídeo</button>
+        </div>
+      </div>
+      <div id="youtubeBox" class="youtube-box hidden"><iframe id="youtubeFrame" title="Player oficial do YouTube" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+
+      <hr>
+      <div class="form-grid">
+        <div>
+          <div class="field"><label for="audioFile">Arquivo de áudio (Beta)</label><input id="audioFile" type="file" accept=".mp3,.wav,.m4a,audio/*"></div>
+          <button class="secondary" id="btnAnalyzeAudio">✨ Analisar áudio</button>
+        </div>
+        <div>
+          <div class="field"><label for="midiFile">Importar MIDI</label><input id="midiFile" type="file" accept=".mid,.midi,audio/midi"></div>
+          <button class="secondary" id="btnMidi">📄 Importar MIDI</button>
+        </div>
+      </div>
+
+      <div class="notice" id="analysisMessage">A análise automática de MP3/WAV requer o futuro servidor de transcrição. MIDI e a demonstração funcionam nesta Beta.</div>
+
+      <div class="form-grid">
+        <div class="field"><label for="difficulty">Dificuldade</label><select id="difficulty"><option value="easy">Fácil</option><option value="normal" selected>Normal</option><option value="full">Completa</option></select></div>
+        <div class="field"><label for="lessonMode">Modo da aula</label><select id="lessonMode"><option value="flow">Fluxo normal</option><option value="training">Treino — espera acertar</option></select></div>
+        <div class="field"><label for="lessonSpeed">Velocidade</label><select id="lessonSpeed"><option value="0.5">50%</option><option value="0.75">75%</option><option value="1" selected>100%</option></select></div>
+        <div class="field"><label for="lessonInstrument">Instrumento</label><select id="lessonInstrument"><option value="piano">Piano</option><option value="guitar">Violão</option></select></div>
+      </div>
+
+      <div class="action-row">
+        <button class="primary" id="btnDemo">🎵 Carregar demonstração</button>
+        <button class="primary" id="btnStartLesson">▶ Iniciar aula</button>
+        <button class="secondary" id="btnMetronome">🥁 Metrônomo: OFF</button>
+      </div>
+      <div id="guidePreview" class="guide-preview"></div>
+    </div>
+  </div>
+
+  <!-- Pix -->
+  <div class="modal hidden" id="pixModal" role="dialog" aria-modal="true" aria-labelledby="pixTitle">
+    <div class="modal-box">
+      <button class="close" data-close="pixModal" aria-label="Fechar">×</button>
+      <h2 id="pixTitle">💚 Apoie o Gesture Synth BR</h2>
+      <p>Qualquer valor ajuda no desenvolvimento, testes e evolução do projeto.</p>
+      <div class="pix-layout">
+        <div id="pixQr" class="pix-qr"></div>
+        <div>
+          <p><strong>Recebedor:</strong> <span id="pixReceiver"></span></p>
+          <p><strong>Valor:</strong> você escolhe</p>
+          <div class="pix-code" id="pixCode"></div>
+          <div class="action-row">
+            <button class="primary" id="btnCopyPix">📋 Copiar Pix</button>
+            <a class="primary link-button" id="btnOpenNubank" href="#" target="_blank" rel="noopener noreferrer">📱 Abrir no Nubank</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacidade -->
+  <div class="modal hidden" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle">
+    <div class="modal-box compact">
+      <button class="close" data-close="privacyModal" aria-label="Fechar">×</button>
+      <h2 id="privacyTitle">🔒 Privacidade</h2>
+      <p><strong>Câmera:</strong> os quadros da webcam são usados localmente no navegador para detectar landmarks das mãos.</p>
+      <p><strong>Não fazemos:</strong> reconhecimento facial, identificação de pessoas, gravação de vídeo ou armazenamento dos landmarks nesta versão.</p>
+      <p><strong>YouTube:</strong> links são exibidos usando o player incorporado oficial; o Gesture Synth BR não extrai nem baixa o áudio do vídeo.</p>
+      <p><strong>Pix:</strong> o código de pagamento exibido é público intencionalmente para permitir contribuições.</p>
+    </div>
+  </div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
